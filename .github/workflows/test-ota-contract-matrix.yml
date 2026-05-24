@@ -1,0 +1,239 @@
+# <!--
+#                 █████
+#                ░░███
+#        ██████  ███████    ██████
+#       ███░░███░░░███░    ░░░░░███
+#      ░███ ░███  ░███      ███████
+#      ░███ ░███  ░███ ███ ███░░███
+#      ░░██████   ░░█████ ░░████████
+#       ░░░░░░     ░░░░░   ░░░░░░░░
+#
+#    Copyright (C) 2026 — 2026, Ota. All Rights Reserved.
+#
+#    DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+#    Licensed under the Apache License, Version 2.0. See LICENSE for the full license text.
+#    You may not use this file except in compliance with that License.
+#    Unless required by applicable law or agreed to in writing, software distributed under the
+#    License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+#    either express or implied. See the License for the specific language governing permissions
+#    and limitations under the License.
+#
+#    If you need additional information or have any questions, please email: os@ota.run
+# -->
+name: "Test: Ota contract matrix"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "ota.yaml"
+      - ".github/workflows/test-ota-contract-matrix.yml"
+  push:
+    paths:
+      - "ota.yaml"
+      - ".github/workflows/test-ota-contract-matrix.yml"
+
+concurrency:
+  group: ota-contract-matrix-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  OTA_NO_UPDATE_CHECK: "1"
+
+jobs:
+  native:
+    name: Ota Contract Matrix (Native - ${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-bash
+            os: ubuntu-latest
+            run_shell: bash
+            docker_ready: true
+            full_proof: true
+          - name: macos-bash
+            os: macos-latest
+            run_shell: bash
+            docker_ready: false
+            full_proof: false
+          - name: windows-pwsh
+            os: windows-latest
+            run_shell: pwsh
+            docker_ready: false
+            full_proof: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Setup ota
+        uses: ota-run/setup@v1
+        with:
+          ota-version: 1.6.15
+
+      - name: Verify ota install [bash]
+        if: matrix.run_shell == 'bash'
+        shell: bash
+        run: ota --version
+
+      - name: Verify ota install [pwsh]
+        if: matrix.run_shell == 'pwsh'
+        shell: pwsh
+        run: ota --version
+
+      - name: Validate contract [bash]
+        if: matrix.run_shell == 'bash'
+        shell: bash
+        run: |
+          ota validate --json . > ota-validate.json
+          ota validate .
+
+      - name: Validate contract [pwsh]
+        if: matrix.run_shell == 'pwsh'
+        shell: pwsh
+        run: |
+          & ota validate --json . | Out-File -Encoding utf8 ota-validate.json
+          ota validate .
+
+      - name: List workflow tasks [bash]
+        if: matrix.run_shell == 'bash'
+        shell: bash
+        run: |
+          ota tasks --workflow verify .
+          ota tasks --workflow quality .
+          ota tasks --workflow build .
+          ota tasks --workflow dev .
+          ota tasks --workflow prod .
+          ota tasks --workflow quickstart .
+          ota tasks --workflow docker .
+          ota tasks --workflow docker:app .
+
+      - name: List workflow tasks [pwsh]
+        if: matrix.run_shell == 'pwsh'
+        shell: pwsh
+        run: |
+          ota tasks --workflow verify .
+          ota tasks --workflow quality .
+          ota tasks --workflow build .
+          ota tasks --workflow dev .
+          ota tasks --workflow prod .
+          ota tasks --workflow quickstart .
+          ota tasks --workflow docker .
+          ota tasks --workflow docker:app .
+
+      - name: Export execution topology [bash]
+        if: matrix.run_shell == 'bash'
+        shell: bash
+        run: |
+          ota execution topology --json . > ota-execution-topology.json
+          cat ota-execution-topology.json
+
+      - name: Export execution topology [pwsh]
+        if: matrix.run_shell == 'pwsh'
+        shell: pwsh
+        run: |
+          & ota execution topology --json . | Out-File -Encoding utf8 ota-execution-topology.json
+          Get-Content ota-execution-topology.json
+
+      - name: Doctor verify workflow + annotations [bash]
+        if: matrix.run_shell == 'bash'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          ota doctor --workflow verify --json . > ota-doctor-verify.json
+          doctor_status=$?
+          set -e
+          ota annotations --mode doctor --format github --input ota-doctor-verify.json
+          exit $doctor_status
+
+      - name: Doctor verify workflow + annotations [pwsh]
+        if: matrix.run_shell == 'pwsh'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          & ota doctor --workflow verify --json . | Out-File -Encoding utf8 ota-doctor-verify.json
+          $doctor_status = $LASTEXITCODE
+          ota annotations --mode doctor --format github --input ota-doctor-verify.json
+          if ($doctor_status -ne 0) {
+            exit $doctor_status
+          }
+
+      - name: Dry-run native workflows [bash]
+        if: matrix.run_shell == 'bash'
+        shell: bash
+        run: |
+          ota up --workflow verify --native --dry-run .
+          ota up --workflow quality --native --dry-run .
+          ota up --workflow build --native --dry-run .
+          ota up --workflow dev --native --dry-run .
+          ota up --workflow prod --native --dry-run .
+
+      - name: Dry-run native workflows [pwsh]
+        if: matrix.run_shell == 'pwsh'
+        shell: pwsh
+        run: |
+          ota up --workflow verify --native --dry-run .
+          ota up --workflow quality --native --dry-run .
+          ota up --workflow build --native --dry-run .
+          ota up --workflow dev --native --dry-run .
+          ota up --workflow prod --native --dry-run .
+
+      - name: Dry-run container-backed workflows [bash]
+        if: matrix.run_shell == 'bash' && matrix.docker_ready
+        shell: bash
+        run: |
+          ota up --workflow verify --container --dry-run .
+          ota up --workflow build --container --dry-run .
+          ota up --workflow quickstart --native --dry-run .
+          ota up --workflow docker --native --dry-run .
+          ota up --workflow docker:app --native --dry-run .
+
+      - name: Proof verify workflow (native)
+        if: matrix.run_shell == 'bash' && matrix.full_proof
+        timeout-minutes: 90
+        shell: bash
+        run: |
+          ota clean . || true
+          ota proof runtime --workflow verify --json . > ota-proof-verify-native.json
+          cat ota-proof-verify-native.json
+          ota clean . || true
+
+      - name: Proof verify workflow (container)
+        if: matrix.run_shell == 'bash' && matrix.full_proof
+        timeout-minutes: 90
+        shell: bash
+        run: |
+          ota clean . || true
+          ota proof runtime --workflow verify --container --json . > ota-proof-verify-container.json
+          cat ota-proof-verify-container.json
+          ota clean . || true
+
+      - name: Upload failure artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ota-contract-matrix-${{ matrix.name }}
+          include-hidden-files: true
+          path: |
+            ota-validate.json
+            ota-execution-topology.json
+            ota-doctor-verify.json
+            ota-proof-verify-native.json
+            ota-proof-verify-container.json
+            .ota/
+          retention-days: 7

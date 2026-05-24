@@ -1,0 +1,539 @@
+# <!--
+#                 █████
+#                ░░███
+#        ██████  ███████    ██████
+#       ███░░███░░░███░    ░░░░░███
+#      ░███ ░███  ░███      ███████
+#      ░███ ░███  ░███ ███ ███░░███
+#      ░░██████   ░░█████ ░░████████
+#       ░░░░░░     ░░░░░   ░░░░░░░░
+#
+#    Copyright (C) 2026 — 2026, Ota. All Rights Reserved.
+#
+#    DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+#
+#    Licensed under the Apache License, Version 2.0. See LICENSE for the full license text.
+#    You may not use this file except in compliance with that License.
+#    Unless required by applicable law or agreed to in writing, software distributed under the
+#    License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+#    either express or implied. See the License for the specific language governing permissions
+#    and limitations under the License.
+#
+#    If you need additional information or have any questions, please email: os@ota.run
+# -->
+version: 1
+project:
+  name: cal.com
+  description: Cal.com monorepo readiness slice covering documented root contributor workflows (native dev, production start, and Docker Compose stack), plus CI-aligned lint/typecheck/test/build paths
+  type: application
+execution:
+  default_context: host
+  contexts:
+    host:
+      backend: native
+      requirements:
+        runtimes:
+          node: ">=20.17.0"
+    docker-host:
+      extends: host
+      requirements:
+        tools:
+          docker: "*"
+    app:
+      backend: container
+      lifecycle: ephemeral
+      requirements:
+        runtimes:
+          node: ">=20.17.0"
+      attachments:
+        isolated_paths:
+          - node_modules
+          - .yarn
+          - .turbo
+          - apps/web/.next
+      container:
+        image: node:20-bookworm
+        engines:
+          - docker
+          - podman
+        resources:
+          memory:
+            minimum: 3GiB
+            default: 4GiB
+toolchains:
+  node:
+    provider: corepack
+    version: "^20.17.0"
+    package_managers:
+      yarn: "4.12.0"
+env:
+  sources:
+    - kind: dotenv
+      path: .env
+  vars:
+    DATABASE_URL:
+      required: true
+    NEXTAUTH_SECRET:
+      required: true
+    CALENDSO_ENCRYPTION_KEY:
+      required: true
+    NEXTAUTH_URL:
+      required: false
+surfaces:
+  web:
+    kind: http
+    port: 3000
+    path: /
+    readiness:
+      kind: http
+      method: GET
+      path: /
+      headers:
+        Accept: text/html
+      success:
+        status:
+          - 200
+      body:
+        contains: "<!DOCTYPE html>"
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+  studio:
+    kind: http
+    port: 5555
+    path: /
+    readiness:
+      kind: http
+      method: GET
+      path: /
+      headers:
+        Accept: text/html
+      success:
+        status:
+          - 200
+      body:
+        contains: "<!DOCTYPE html>"
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+tasks:
+  setup:env:
+    context: host
+    description: Create `.env` from `.env.example` when missing
+    notes: |
+      This follows the documented local setup path in `README.md`.
+      The copy is idempotent and only runs when `.env` is absent.
+    category: setup
+    action:
+      kind: copy_if_missing
+      from: .env.example
+      to: .env
+    safe_for_agent: false
+  install:
+    context: host
+    description: Install monorepo dependencies with Yarn
+    notes: |
+      This maps to the repo's canonical install surface (`yarn`) and CI's dependency hydration path.
+    category: setup
+    run: yarn install --inline-builds
+    effects:
+      network: true
+    depends_on:
+      - setup:env
+    execution:
+      default_mode: native
+      modes:
+        native:
+          context: host
+          run: yarn install --inline-builds
+        container:
+          context: app
+          run: yarn install --inline-builds
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: false
+  prisma:generate:
+    context: host
+    description: Generate Prisma client and schemas
+    notes: |
+      This matches the repo and CI path used before tests and builds.
+    category: setup
+    run: yarn prisma generate
+    depends_on:
+      - install
+    execution:
+      default_mode: native
+      modes:
+        native:
+          context: host
+          run: yarn prisma generate
+        container:
+          context: app
+          run: yarn prisma generate
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: true
+  lint:
+    context: host
+    description: Run repository lint checks
+    notes: |
+      Mirrors `.github/workflows/lint.yml`.
+    category: test
+    run: yarn lint
+    depends_on:
+      - install
+    execution:
+      default_mode: native
+      modes:
+        native:
+          context: host
+          run: yarn lint
+        container:
+          context: app
+          run: yarn lint
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: true
+  typecheck:
+    context: host
+    description: Run repository type checks
+    notes: |
+      Mirrors `.github/workflows/check-types.yml` (`yarn type-check:ci`).
+    category: test
+    run: yarn type-check:ci
+    depends_on:
+      - install
+      - prisma:generate
+    execution:
+      default_mode: native
+      modes:
+        native:
+          context: host
+          run: yarn type-check:ci
+        container:
+          context: app
+          run: yarn type-check:ci
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: true
+  test:
+    context: host
+    description: Run unit test surface
+    notes: |
+      Mirrors `.github/workflows/unit-tests.yml` command surface (`yarn test -- --no-isolate`).
+    category: test
+    run: yarn test -- --no-isolate
+    depends_on:
+      - install
+      - prisma:generate
+    execution:
+      default_mode: native
+      modes:
+        native:
+          context: host
+          run: yarn test -- --no-isolate
+        container:
+          context: app
+          run: yarn test -- --no-isolate
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: true
+  build:
+    context: host
+    description: Run production build surface
+    notes: |
+      Mirrors root `yarn build` and CI production build intent.
+      Requires `.env` values compatible with the target runtime.
+    category: build
+    run: yarn build
+    depends_on:
+      - install
+      - prisma:generate
+    execution:
+      default_mode: native
+      modes:
+        native:
+          context: host
+          run: yarn build
+        container:
+          context: app
+          run: yarn build
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: true
+  db:migrate:
+    context: host
+    description: Apply Prisma development migrations
+    notes: |
+      This maps to the README manual setup path (`yarn workspace @calcom/prisma db-migrate`).
+      It expects an available PostgreSQL database from local setup, `yarn dx`, or Docker Compose.
+    category: setup
+    run: yarn workspace @calcom/prisma db-migrate
+    depends_on:
+      - install
+      - setup:env
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: false
+  db:deploy:
+    context: host
+    description: Apply Prisma production migrations
+    notes: |
+      This maps to the README production migration path (`yarn workspace @calcom/prisma db-deploy`).
+      It expects an available PostgreSQL database.
+    category: setup
+    run: yarn workspace @calcom/prisma db-deploy
+    depends_on:
+      - install
+      - setup:env
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: false
+  dev:
+    context: host
+    description: Run the root development server
+    notes: |
+      This maps directly to `yarn dev` in the README local development flow.
+      Database and env configuration must already be valid.
+    category: dev
+    run: yarn dev
+    depends_on:
+      - db:migrate
+    runtime:
+      kind: service
+      surfaces:
+        - web
+    safe_for_agent: false
+  start:
+    context: host
+    description: Run the production server from a built workspace
+    notes: |
+      This maps directly to the documented production startup path (`yarn build && yarn start`).
+    category: prod
+    run: yarn start
+    depends_on:
+      - build
+      - db:deploy
+    runtime:
+      kind: service
+      surfaces:
+        - web
+    safe_for_agent: false
+  dx:
+    context: host
+    description: Run documented quick-start path with Docker-backed local services
+    notes: |
+      This follows the README `yarn dx` path that bootstraps local database state.
+      It requires Docker availability on the host.
+    category: dev
+    run: yarn dx
+    depends_on:
+      - install
+      - setup:env
+    requirements:
+      toolchains:
+        - node
+    runtime:
+      kind: service
+      surfaces:
+        web:
+          project:
+            host:
+              primary: true
+    safe_for_agent: false
+  docker:up:
+    context: docker-host
+    description: Start the full Docker Compose stack in detached mode
+    notes: |
+      This maps to README Docker deployment for full stack (`docker compose up -d`).
+      It launches database, Cal.com app, and Prisma Studio.
+    category: prod
+    run: docker compose up -d
+    depends_on:
+      - setup:env
+    effects:
+      external_state:
+        - docker
+    runtime:
+      kind: service
+      surfaces:
+        web:
+          project:
+            host:
+              primary: true
+        studio: {}
+    safe_for_agent: false
+  docker:up:app:
+    context: docker-host
+    description: Start only the Cal.com web app container in detached mode
+    notes: |
+      This maps to README Docker deployment command `docker compose up -d calcom`.
+      It assumes DATABASE_URL in `.env` points to an available database.
+    category: prod
+    run: docker compose up -d calcom
+    depends_on:
+      - setup:env
+    effects:
+      external_state:
+        - docker
+    runtime:
+      kind: service
+      surfaces:
+        web:
+          project:
+            host:
+              primary: true
+    safe_for_agent: false
+  docker:down:
+    context: docker-host
+    description: Stop and remove the Docker Compose stack
+    notes: |
+      Cleanup task for local Docker workflow teardown.
+    category: cleanup
+    run: docker compose down
+    effects:
+      external_state:
+        - docker
+    safe_for_agent: false
+workflows:
+  default: dev
+  verify:
+    intent: ci_verification
+    description: CI-aligned dependency + lint + typecheck + unit-test path
+    notes: |
+      This models the repo's reusable CI workflow commands for local and container verification.
+    prepare:
+      task: setup:env
+    setup:
+      task: install
+    run:
+      task: test
+  quality:
+    intent: ci_verification
+    description: Lint and typecheck quality gates
+    notes: |
+      Mirrors lint and type-check workflow surfaces from CI.
+    prepare:
+      task: setup:env
+    setup:
+      task: install
+    run:
+      task: typecheck
+  build:
+    intent: production_build
+    description: Production build path for the root web workspace
+    notes: |
+      Mirrors the root `yarn build` production build surface.
+    prepare:
+      task: setup:env
+    setup:
+      task: install
+    run:
+      task: build
+  dev:
+    intent: app_development
+    description: Native local development server path
+    notes: |
+      This is the README-native contributor path for local development (`yarn dev`).
+    prepare:
+      task: setup:env
+    setup:
+      task: db:migrate
+    run:
+      task: dev
+    readiness:
+      surfaces: [web]
+    exposes:
+      - surface: web
+  prod:
+    intent: production_runtime
+    description: Native production startup from built artifacts
+    notes: |
+      This follows the documented native production sequence (`yarn build` then `yarn start`).
+    prepare:
+      task: setup:env
+    setup:
+      task: db:deploy
+    run:
+      task: start
+    readiness:
+      surfaces: [web]
+    exposes:
+      - surface: web
+  quickstart:
+    intent: app_development
+    description: Docker-backed quick start using `yarn dx`
+    notes: |
+      This is the README quickstart that relies on Docker Compose-backed local services.
+    prepare:
+      task: setup:env
+    setup:
+      task: install
+    run:
+      task: dx
+    readiness:
+      surfaces: [web]
+    exposes:
+      - surface: web
+  docker:
+    intent: packaged_runtime
+    description: Full Docker Compose deployment path
+    notes: |
+      This maps to README deployment command `docker compose up -d`.
+    prepare:
+      task: setup:env
+    run:
+      task: docker:up
+    readiness:
+      surfaces: [web, studio]
+    exposes:
+      - surface: web
+      - surface: studio
+  docker:app:
+    intent: packaged_runtime
+    description: Docker Compose web-only deployment path
+    notes: |
+      This maps to README deployment command `docker compose up -d calcom`.
+    prepare:
+      task: setup:env
+    run:
+      task: docker:up:app
+    readiness:
+      surfaces: [web]
+    exposes:
+      - surface: web
+agent:
+  entrypoint: setup:env
+  default_task: typecheck
+  safe_tasks:
+    - setup:env
+    - prisma:generate
+    - lint
+    - typecheck
+    - test
+    - build
+  protected_paths:
+    - ota.yaml
+    - package.json
+    - yarn.lock
+    - .github
+  writable_paths:
+    - apps
+    - packages
+    - scripts
+    - docs
+    - .changeset
+  verify_after_changes:
+    - lint
+    - typecheck
+    - test
