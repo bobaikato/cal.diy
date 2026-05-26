@@ -1,26 +1,3 @@
-# <!--
-#                 █████
-#                ░░███
-#        ██████  ███████    ██████
-#       ███░░███░░░███░    ░░░░░███
-#      ░███ ░███  ░███      ███████
-#      ░███ ░███  ░███ ███ ███░░███
-#      ░░██████   ░░█████ ░░████████
-#       ░░░░░░     ░░░░░   ░░░░░░░░
-#
-#    Copyright (C) 2026 — 2026, Ota. All Rights Reserved.
-#
-#    DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
-#
-#    Licensed under the Apache License, Version 2.0. See LICENSE for the full license text.
-#    You may not use this file except in compliance with that License.
-#    Unless required by applicable law or agreed to in writing, software distributed under the
-#    License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
-#    either express or implied. See the License for the specific language governing permissions
-#    and limitations under the License.
-#
-#    If you need additional information or have any questions, please email: os@ota.run
-# -->
 version: 1
 project:
   name: cal.com
@@ -138,7 +115,6 @@ tasks:
     effects:
       writes:
         - .env
-    safe_for_agent: false
   install:
     context: host
     description: Install monorepo dependencies with Yarn
@@ -160,7 +136,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: false
   prisma:generate:
     context: host
     description: Generate Prisma client and schemas
@@ -318,7 +293,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: false
   db:deploy:
     context: host
     description: Apply Prisma production migrations
@@ -336,7 +310,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: false
   dev:
     context: host
     description: Run the root development server
@@ -351,7 +324,6 @@ tasks:
       kind: service
       surfaces:
         - web
-    safe_for_agent: false
   start:
     context: host
     description: Run the production server from a built workspace
@@ -366,7 +338,6 @@ tasks:
       kind: service
       surfaces:
         - web
-    safe_for_agent: false
   dx:
     context: host
     description: Run documented quick-start path with Docker-backed local services
@@ -393,7 +364,6 @@ tasks:
           project:
             host:
               primary: true
-    safe_for_agent: false
   docker:up:
     context: docker-host
     description: Start the full Docker Compose stack in detached mode
@@ -415,7 +385,6 @@ tasks:
             host:
               primary: true
         studio: {}
-    safe_for_agent: false
   docker:up:studio:
     context: docker-host
     description: Start Cal.diy web + Prisma Studio against an existing database
@@ -437,7 +406,6 @@ tasks:
             host:
               primary: true
         studio: {}
-    safe_for_agent: false
   docker:up:app:
     context: docker-host
     description: Start the Cal.com web app compose target in detached mode
@@ -458,7 +426,6 @@ tasks:
           project:
             host:
               primary: true
-    safe_for_agent: false
   docker:down:
     context: docker-host
     description: Stop and remove the Docker Compose stack
@@ -469,7 +436,6 @@ tasks:
     effects:
       external_state:
         - docker
-    safe_for_agent: false
 workflows:
   default: dev
   verify:
@@ -617,3 +583,20 @@ agent:
     - lint
     - typecheck
     - test
+  bootstrap:
+    ota:
+      note: Install ota when missing so contributors and agents can run the readiness workflows declared in this contract.
+      sh: curl -fsSL https://dist.ota.run/install.sh | OTA_VERSION=v1.6.16 sh
+      powershell: $env:OTA_VERSION='v1.6.16'; irm https://dist.ota.run/install.ps1 | iex
+  notes: |
+    Use `ota tasks --use .` to list runnable tasks and review the agent-safe surface before execution.
+    Use `ota run setup:env .` before workflow runs so `.env`/`gh.env` are created when missing.
+    Use `ota up --workflow verify --native .` for CI-aligned validation.
+    Use `ota up --workflow quality --native .` for lint + typecheck gates.
+    Use `ota up --workflow dev --native .` for the canonical local `yarn dev` path.
+    Use `ota up --workflow build --native .` or `ota up --workflow prod --native .`
+    for production-oriented build/start validation.
+    Use `ota up --workflow quickstart --native .`, `ota up --workflow docker --native .`,
+    `ota up --workflow docker:remote-db --native .`, and `ota up --workflow docker:app --native .`
+    for the documented Docker-backed paths.
+    No tasks are agent-safe by default in this slice.
