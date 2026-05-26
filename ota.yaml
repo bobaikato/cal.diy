@@ -157,7 +157,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: true
   lint:
     context: host
     description: Run repository lint checks
@@ -179,7 +178,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: true
   typecheck:
     context: host
     description: Run repository type checks
@@ -202,7 +200,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: true
   test:
     context: host
     description: Run unit test surface
@@ -225,7 +222,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: true
   test:timezone:
     context: host
     description: Run unit tests in CI timezone mode
@@ -251,7 +247,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: true
   build:
     context: host
     description: Run production build surface
@@ -275,7 +270,6 @@ tasks:
     requirements:
       toolchains:
         - node
-    safe_for_agent: true
   db:migrate:
     context: host
     description: Apply Prisma development migrations

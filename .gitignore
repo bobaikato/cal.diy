@@ -117,3 +117,7 @@ agents/devin-knowledge.json
 
 # pagefind
 _pagefind/
+# Ota local artifacts
+.ota/state/
+.ota/receipts/
+.ota/proof/
