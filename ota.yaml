@@ -26,6 +26,9 @@ project:
   name: cal.com
   description: Cal.com monorepo readiness slice covering documented root contributor workflows (native dev, production start, and Docker Compose stack), plus CI-aligned lint/typecheck/test/build paths
   type: application
+metadata:
+  ota:
+    minimum_version: "1.6.16"
 execution:
   default_context: host
   contexts:
@@ -79,6 +82,8 @@ env:
       required: true
     NEXTAUTH_URL:
       required: false
+    NEXT_PUBLIC_WEBAPP_URL:
+      required: false
 surfaces:
   web:
     kind: http
@@ -130,6 +135,9 @@ tasks:
       kind: copy_if_missing
       from: .env.example
       to: .env
+    effects:
+      writes:
+        - .env
     safe_for_agent: false
   install:
     context: host
@@ -140,8 +148,6 @@ tasks:
     run: yarn install --inline-builds
     effects:
       network: true
-    depends_on:
-      - setup:env
     execution:
       default_mode: native
       modes:
@@ -245,6 +251,32 @@ tasks:
       toolchains:
         - node
     safe_for_agent: true
+  test:timezone:
+    context: host
+    description: Run unit tests in CI timezone mode
+    notes: |
+      Mirrors the second command in `.github/workflows/unit-tests.yml`
+      (`TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate`).
+      Depends on lint + typecheck so this task represents the full CI verify chain.
+    category: test
+    run: TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate
+    depends_on:
+      - lint
+      - typecheck
+      - test
+    execution:
+      default_mode: native
+      modes:
+        native:
+          context: host
+          run: TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate
+        container:
+          context: app
+          run: TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate
+    requirements:
+      toolchains:
+        - node
+    safe_for_agent: true
   build:
     context: host
     description: Run production build surface
@@ -280,6 +312,9 @@ tasks:
     depends_on:
       - install
       - setup:env
+    effects:
+      external_state:
+        - database
     requirements:
       toolchains:
         - node
@@ -295,6 +330,9 @@ tasks:
     depends_on:
       - install
       - setup:env
+    effects:
+      external_state:
+        - database
     requirements:
       toolchains:
         - node
@@ -340,6 +378,11 @@ tasks:
     depends_on:
       - install
       - setup:env
+    effects:
+      external_state:
+        - docker
+        - database
+      network: true
     requirements:
       toolchains:
         - node
@@ -356,7 +399,7 @@ tasks:
     description: Start the full Docker Compose stack in detached mode
     notes: |
       This maps to README Docker deployment for full stack (`docker compose up -d`).
-      It launches database, Cal.com app, and Prisma Studio.
+      It launches database, redis, Cal.com app, API v2 container, and Prisma Studio.
     category: prod
     run: docker compose up -d
     depends_on:
@@ -373,12 +416,34 @@ tasks:
               primary: true
         studio: {}
     safe_for_agent: false
+  docker:up:studio:
+    context: docker-host
+    description: Start Cal.diy web + Prisma Studio against an existing database
+    notes: |
+      This maps to README Docker deployment command `docker compose up -d calcom studio`.
+      It expects `DATABASE_URL` to point to an available database.
+    category: prod
+    run: docker compose up -d calcom studio
+    depends_on:
+      - setup:env
+    effects:
+      external_state:
+        - docker
+    runtime:
+      kind: service
+      surfaces:
+        web:
+          project:
+            host:
+              primary: true
+        studio: {}
+    safe_for_agent: false
   docker:up:app:
     context: docker-host
-    description: Start only the Cal.com web app container in detached mode
+    description: Start the Cal.com web app compose target in detached mode
     notes: |
       This maps to README Docker deployment command `docker compose up -d calcom`.
-      It assumes DATABASE_URL in `.env` points to an available database.
+      Docker Compose may also start `calcom` dependencies (for example `database`).
     category: prod
     run: docker compose up -d calcom
     depends_on:
@@ -409,15 +474,16 @@ workflows:
   default: dev
   verify:
     intent: ci_verification
-    description: CI-aligned dependency + lint + typecheck + unit-test path
+    description: CI-aligned lint + typecheck + unit-test path
     notes: |
-      This models the repo's reusable CI workflow commands for local and container verification.
+      This models the repo's CI verification chain:
+      lint + typecheck + both unit-test workflow commands.
     prepare:
       task: setup:env
     setup:
       task: install
     run:
-      task: test
+      task: test:timezone
   quality:
     intent: ci_verification
     description: Lint and typecheck quality gates
@@ -499,6 +565,20 @@ workflows:
     exposes:
       - surface: web
       - surface: studio
+  docker:remote-db:
+    intent: packaged_runtime
+    description: Docker Compose web + studio path against a remote database
+    notes: |
+      This maps to README deployment command `docker compose up -d calcom studio`.
+    prepare:
+      task: setup:env
+    run:
+      task: docker:up:studio
+    readiness:
+      surfaces: [web, studio]
+    exposes:
+      - surface: web
+      - surface: studio
   docker:app:
     intent: packaged_runtime
     description: Docker Compose web-only deployment path
@@ -513,21 +593,21 @@ workflows:
     exposes:
       - surface: web
 agent:
-  entrypoint: setup:env
+  entrypoint: install
   default_task: typecheck
-  safe_tasks:
-    - setup:env
-    - prisma:generate
-    - lint
-    - typecheck
-    - test
-    - build
+  safe_tasks: []
   protected_paths:
     - ota.yaml
     - package.json
     - yarn.lock
-    - .github
+    - .env
+    - .env.*
+    - gh.env
+    - .github/workflows
   writable_paths:
+    - node_modules
+    - .yarn
+    - .turbo
     - apps
     - packages
     - scripts
