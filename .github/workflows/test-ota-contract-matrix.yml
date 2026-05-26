@@ -55,7 +55,7 @@ env:
 
 jobs:
   native:
-    name: Ota Contract Matrix (Native - ${{ matrix.name }})
+    name: Ota Contract Matrix (Cross-OS + Ubuntu Runtime - ${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
     env:
@@ -335,6 +335,56 @@ jobs:
             Get-Content $file -Raw | ConvertFrom-Json | Out-Null
           }
 
+      - name: Container planning proof (cross-OS) [bash]
+        if: matrix.run_shell == 'bash'
+        shell: bash
+        run: |
+          set +e
+          ota up --workflow verify --container --dry-run --json . > ota-up-verify-container-cross-os-dry-run.json
+          verify_container_status=$?
+          ota up --workflow build --container --dry-run --json . > ota-up-build-container-cross-os-dry-run.json
+          build_container_status=$?
+          set -e
+          python3 - <<'PY'
+          import json
+          files = [
+              "ota-up-verify-container-cross-os-dry-run.json",
+              "ota-up-build-container-cross-os-dry-run.json",
+          ]
+          for path in files:
+              payload = json.load(open(path, encoding="utf-8"))
+              if not payload.get("dry_run") or not payload.get("status"):
+                  raise SystemExit(f"invalid container dry-run payload in {path}: {payload}")
+          print("validated cross-OS container dry-run JSON artifacts")
+          PY
+          if [ "${verify_container_status}" -ne 0 ] || [ "${build_container_status}" -ne 0 ]; then
+            echo "container dry-run blocked on this host (expected on non-Ubuntu hosted runners)"
+          fi
+
+      - name: Container planning proof (cross-OS) [pwsh]
+        if: matrix.run_shell == 'pwsh'
+        shell: pwsh
+        run: |
+          & ota up --workflow verify --container --dry-run --json . | Out-File -Encoding utf8 ota-up-verify-container-cross-os-dry-run.json
+          $verifyContainerStatus = $LASTEXITCODE
+          & ota up --workflow build --container --dry-run --json . | Out-File -Encoding utf8 ota-up-build-container-cross-os-dry-run.json
+          $buildContainerStatus = $LASTEXITCODE
+          $files = @(
+            "ota-up-verify-container-cross-os-dry-run.json",
+            "ota-up-build-container-cross-os-dry-run.json"
+          )
+          foreach ($file in $files) {
+            $payload = Get-Content $file -Raw | ConvertFrom-Json
+            if (-not $payload.dry_run -or [string]::IsNullOrWhiteSpace($payload.status)) {
+              Write-Error "invalid container dry-run payload in $file"
+              exit 1
+            }
+          }
+          if ($verifyContainerStatus -ne 0 -or $buildContainerStatus -ne 0) {
+            Write-Output "container dry-run blocked on this host (expected on non-Ubuntu hosted runners)"
+          }
+          $global:LASTEXITCODE = 0
+
       - name: Pre-run proof (container/dx/docker dry-run JSON) [bash]
         if: matrix.run_shell == 'bash' && matrix.docker_ready
         shell: bash
@@ -403,6 +453,8 @@ jobs:
             ota-up-build-native-dry-run.json
             ota-up-dev-native-dry-run.json
             ota-up-prod-native-dry-run.json
+            ota-up-verify-container-cross-os-dry-run.json
+            ota-up-build-container-cross-os-dry-run.json
             ota-up-verify-container-dry-run.json
             ota-up-build-container-dry-run.json
             ota-up-quickstart-native-dry-run.json
