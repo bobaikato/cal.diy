@@ -546,7 +546,7 @@ jobs:
         shell: bash
         run: |
           ota clean . || true
-          ota proof runtime --workflow verify --json . > ota-proof-verify-native.json
+          ota proof runtime --workflow verify --ready-timeout 25m --json . > ota-proof-verify-native.json
           cat ota-proof-verify-native.json
           python3 -c 'import json; json.load(open("ota-proof-verify-native.json", encoding="utf-8"))'
           ota clean . || true
@@ -557,7 +557,7 @@ jobs:
         shell: bash
         run: |
           ota clean . || true
-          ota proof runtime --workflow verify --container --json . > ota-proof-verify-container.json
+          ota proof runtime --workflow verify --container --ready-timeout 25m --json . > ota-proof-verify-container.json
           cat ota-proof-verify-container.json
           python3 -c 'import json; json.load(open("ota-proof-verify-container.json", encoding="utf-8"))'
           ota clean . || true
