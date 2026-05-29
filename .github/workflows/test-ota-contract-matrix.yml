@@ -463,6 +463,9 @@ jobs:
             | select((.internal // false) == false)
             | select(.name != "db:deploy")
             | select(.name != "db:migrate")
+            | select(.name != "dev")
+            | select(.name != "start")
+            | select((.name | startswith("docker:")) | not)
             | {
                 name: .name,
                 supports_native: (
@@ -505,6 +508,8 @@ jobs:
             | select((.internal // false) == false)
             | select(.name != "db:deploy")
             | select(.name != "db:migrate")
+            | select(.name != "dev")
+            | select(.name != "start")
             | {
                 name: .name,
                 supports_container: (
