@@ -461,6 +461,7 @@ jobs:
           jq -c '
             .tasks[]
             | select((.internal // false) == false)
+            | select(.name != "db:deploy")
             | {
                 name: .name,
                 supports_native: (
@@ -501,6 +502,7 @@ jobs:
           jq -c '
             .tasks[]
             | select((.internal // false) == false)
+            | select(.name != "db:deploy")
             | {
                 name: .name,
                 supports_container: (
