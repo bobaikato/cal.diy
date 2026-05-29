@@ -411,6 +411,24 @@ jobs:
           print("validated container/dx/docker dry-run JSON artifacts")
           PY
 
+      - name: Execute native smoke tasks (cross-OS non-Ubuntu) [bash]
+        if: matrix.run_shell == 'bash' && !matrix.full_proof
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          ota run install --native --stream .
+          ota run typecheck --native --stream .
+
+      - name: Execute native smoke tasks (cross-OS non-Ubuntu) [pwsh]
+        if: matrix.run_shell == 'pwsh' && !matrix.full_proof
+        timeout-minutes: 45
+        shell: pwsh
+        run: |
+          & ota run install --native --stream .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ota run typecheck --native --stream .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Execute verify workflow (native)
         if: matrix.run_shell == 'bash' && matrix.full_proof
         timeout-minutes: 60
