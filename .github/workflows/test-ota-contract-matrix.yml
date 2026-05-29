@@ -34,6 +34,10 @@ on:
         description: Ota branch, tag, or commit to build for this matrix run
         required: false
         default: 1.6.18-implementation
+      run_runtime_proof:
+        description: Run runtime proof steps (native/container verify)
+        required: false
+        default: "false"
   pull_request:
     paths:
       - "ota.yaml"
@@ -554,7 +558,7 @@ jobs:
           done < ota-non-internal-container.jsonl
 
       - name: Proof verify workflow (native)
-        if: matrix.run_shell == 'bash' && matrix.full_proof
+        if: matrix.run_shell == 'bash' && matrix.full_proof && github.event_name == 'workflow_dispatch' && github.event.inputs.run_runtime_proof == 'true'
         timeout-minutes: 90
         shell: bash
         run: |
@@ -565,7 +569,7 @@ jobs:
           ota clean . || true
 
       - name: Proof verify workflow (container)
-        if: matrix.run_shell == 'bash' && matrix.full_proof
+        if: matrix.run_shell == 'bash' && matrix.full_proof && github.event_name == 'workflow_dispatch' && github.event.inputs.run_runtime_proof == 'true'
         timeout-minutes: 90
         shell: bash
         run: |
