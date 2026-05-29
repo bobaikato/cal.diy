@@ -462,6 +462,7 @@ jobs:
             .tasks[]
             | select((.internal // false) == false)
             | select(.name != "db:deploy")
+            | select(.name != "db:migrate")
             | {
                 name: .name,
                 supports_native: (
@@ -503,6 +504,7 @@ jobs:
             .tasks[]
             | select((.internal // false) == false)
             | select(.name != "db:deploy")
+            | select(.name != "db:migrate")
             | {
                 name: .name,
                 supports_container: (
