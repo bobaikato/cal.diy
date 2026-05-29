@@ -270,6 +270,7 @@ tasks:
     requirements:
       toolchains:
         - node
+    internal: true
   db:migrate:
     context: host
     description: Apply Prisma development migrations
