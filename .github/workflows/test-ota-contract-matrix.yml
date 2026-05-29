@@ -411,6 +411,30 @@ jobs:
           print("validated container/dx/docker dry-run JSON artifacts")
           PY
 
+      - name: Execute verify workflow (native)
+        if: matrix.run_shell == 'bash' && matrix.full_proof
+        timeout-minutes: 60
+        shell: bash
+        run: ota up --workflow verify --native --stream .
+
+      - name: Execute verify workflow (container)
+        if: matrix.run_shell == 'bash' && matrix.full_proof
+        timeout-minutes: 60
+        shell: bash
+        run: ota up --workflow verify --container --stream .
+
+      - name: Execute build workflow (native)
+        if: matrix.run_shell == 'bash' && matrix.full_proof
+        timeout-minutes: 60
+        shell: bash
+        run: ota up --workflow build --native --stream .
+
+      - name: Execute build workflow (container)
+        if: matrix.run_shell == 'bash' && matrix.full_proof
+        timeout-minutes: 60
+        shell: bash
+        run: ota up --workflow build --container --stream .
+
       - name: Proof verify workflow (native)
         if: matrix.run_shell == 'bash' && matrix.full_proof
         timeout-minutes: 90
