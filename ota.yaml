@@ -28,7 +28,7 @@ execution:
       attachments:
         isolated_paths:
           - node_modules
-          - .yarn
+          - .yarn/cache
           - .turbo
           - apps/web/.next
       container:
