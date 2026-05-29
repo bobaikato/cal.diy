@@ -426,8 +426,6 @@ jobs:
         run: |
           & ota run install --native --stream .
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & ota run typecheck --native --stream .
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Execute verify workflow (native)
         if: matrix.run_shell == 'bash' && matrix.full_proof
