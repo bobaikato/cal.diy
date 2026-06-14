@@ -312,7 +312,11 @@ tasks:
       This maps directly to `yarn dev` in the README local development flow.
       Database and env configuration must already be valid.
     category: dev
-    run: yarn dev
+    launch:
+      kind: command
+      exe: yarn
+      args:
+        - dev
     depends_on:
       - db:migrate
     runtime:
@@ -325,7 +329,11 @@ tasks:
     notes: |
       This maps directly to the documented production startup path (`yarn build && yarn start`).
     category: prod
-    run: yarn start
+    launch:
+      kind: command
+      exe: yarn
+      args:
+        - start
     depends_on:
       - build
       - db:deploy
@@ -340,7 +348,11 @@ tasks:
       This follows the README `yarn dx` path that bootstraps local database state.
       It requires Docker availability on the host.
     category: dev
-    run: yarn dx
+    launch:
+      kind: command
+      exe: yarn
+      args:
+        - dx
     depends_on:
       - install
       - setup:env
@@ -366,7 +378,13 @@ tasks:
       This maps to README Docker deployment for full stack (`docker compose up -d`).
       It launches database, redis, Cal.com app, API v2 container, and Prisma Studio.
     category: prod
-    run: docker compose up -d
+    launch:
+      kind: command
+      exe: docker
+      args:
+        - compose
+        - up
+        - -d
     depends_on:
       - setup:env
     effects:
@@ -387,7 +405,15 @@ tasks:
       This maps to README Docker deployment command `docker compose up -d calcom studio`.
       It expects `DATABASE_URL` to point to an available database.
     category: prod
-    run: docker compose up -d calcom studio
+    launch:
+      kind: command
+      exe: docker
+      args:
+        - compose
+        - up
+        - -d
+        - calcom
+        - studio
     depends_on:
       - setup:env
     effects:
@@ -408,7 +434,14 @@ tasks:
       This maps to README Docker deployment command `docker compose up -d calcom`.
       Docker Compose may also start `calcom` dependencies (for example `database`).
     category: prod
-    run: docker compose up -d calcom
+    launch:
+      kind: command
+      exe: docker
+      args:
+        - compose
+        - up
+        - -d
+        - calcom
     depends_on:
       - setup:env
     effects:
