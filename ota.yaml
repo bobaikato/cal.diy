@@ -144,7 +144,11 @@ tasks:
     notes: |
       This matches the repo and CI path used before tests and builds.
     category: setup
-    run: yarn prisma generate
+    command:
+      exe: yarn
+      args:
+        - prisma
+        - generate
     depends_on:
       - install
     execution:
@@ -152,10 +156,18 @@ tasks:
       modes:
         native:
           context: host
-          run: yarn prisma generate
+          command:
+            exe: yarn
+            args:
+              - prisma
+              - generate
         container:
           context: app
-          run: yarn prisma generate
+          command:
+            exe: yarn
+            args:
+              - prisma
+              - generate
     requirements:
       toolchains:
         - node
@@ -165,7 +177,10 @@ tasks:
     notes: |
       Mirrors `.github/workflows/lint.yml`.
     category: test
-    run: yarn lint
+    command:
+      exe: yarn
+      args:
+        - lint
     depends_on:
       - install
     execution:
@@ -173,10 +188,16 @@ tasks:
       modes:
         native:
           context: host
-          run: yarn lint
+          command:
+            exe: yarn
+            args:
+              - lint
         container:
           context: app
-          run: yarn lint
+          command:
+            exe: yarn
+            args:
+              - lint
     requirements:
       toolchains:
         - node
@@ -186,7 +207,10 @@ tasks:
     notes: |
       Mirrors `.github/workflows/check-types.yml` (`yarn type-check:ci`).
     category: test
-    run: yarn type-check:ci
+    command:
+      exe: yarn
+      args:
+        - type-check:ci
     depends_on:
       - install
       - prisma:generate
@@ -195,10 +219,16 @@ tasks:
       modes:
         native:
           context: host
-          run: yarn type-check:ci
+          command:
+            exe: yarn
+            args:
+              - type-check:ci
         container:
           context: app
-          run: yarn type-check:ci
+          command:
+            exe: yarn
+            args:
+              - type-check:ci
     requirements:
       toolchains:
         - node
@@ -208,7 +238,12 @@ tasks:
     notes: |
       Mirrors `.github/workflows/unit-tests.yml` command surface (`yarn test -- --no-isolate`).
     category: test
-    run: yarn test -- --no-isolate
+    command:
+      exe: yarn
+      args:
+        - test
+        - --
+        - --no-isolate
     depends_on:
       - install
       - prisma:generate
@@ -217,10 +252,20 @@ tasks:
       modes:
         native:
           context: host
-          run: yarn test -- --no-isolate
+          command:
+            exe: yarn
+            args:
+              - test
+              - --
+              - --no-isolate
         container:
           context: app
-          run: yarn test -- --no-isolate
+          command:
+            exe: yarn
+            args:
+              - test
+              - --
+              - --no-isolate
     requirements:
       toolchains:
         - node
@@ -232,7 +277,12 @@ tasks:
       (`TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate`).
       Depends on lint + typecheck so this task represents the full CI verify chain.
     category: test
-    run: TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate
+    command:
+      exe: yarn
+      args:
+        - test
+        - --
+        - --no-isolate
     depends_on:
       - lint
       - typecheck
@@ -242,10 +292,23 @@ tasks:
       modes:
         native:
           context: host
-          run: TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate
+          command:
+            exe: yarn
+            args:
+              - test
+              - --
+              - --no-isolate
         container:
           context: app
-          run: TZ=America/Los_Angeles VITEST_MODE=timezone yarn test -- --no-isolate
+          command:
+            exe: yarn
+            args:
+              - test
+              - --
+              - --no-isolate
+    env:
+      TZ: America/Los_Angeles
+      VITEST_MODE: timezone
     requirements:
       toolchains:
         - node
@@ -256,7 +319,10 @@ tasks:
       Mirrors root `yarn build` and CI production build intent.
       Requires `.env` values compatible with the target runtime.
     category: build
-    run: yarn build
+    command:
+      exe: yarn
+      args:
+        - build
     depends_on:
       - install
       - prisma:generate
@@ -265,10 +331,16 @@ tasks:
       modes:
         native:
           context: host
-          run: yarn build
+          command:
+            exe: yarn
+            args:
+              - build
         container:
           context: app
-          run: yarn build
+          command:
+            exe: yarn
+            args:
+              - build
     requirements:
       toolchains:
         - node
@@ -280,7 +352,12 @@ tasks:
       This maps to the README manual setup path (`yarn workspace @calcom/prisma db-migrate`).
       It expects an available PostgreSQL database from local setup, `yarn dx`, or Docker Compose.
     category: setup
-    run: yarn workspace @calcom/prisma db-migrate
+    command:
+      exe: yarn
+      args:
+        - workspace
+        - "@calcom/prisma"
+        - db-migrate
     depends_on:
       - install
       - setup:env
@@ -297,7 +374,12 @@ tasks:
       This maps to the README production migration path (`yarn workspace @calcom/prisma db-deploy`).
       It expects an available PostgreSQL database.
     category: setup
-    run: yarn workspace @calcom/prisma db-deploy
+    command:
+      exe: yarn
+      args:
+        - workspace
+        - "@calcom/prisma"
+        - db-deploy
     depends_on:
       - install
       - setup:env
@@ -462,7 +544,11 @@ tasks:
     notes: |
       Cleanup task for local Docker workflow teardown.
     category: cleanup
-    run: docker compose down
+    command:
+      exe: docker
+      args:
+        - compose
+        - down
     effects:
       external_state:
         - docker
