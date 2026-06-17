@@ -42,10 +42,12 @@ execution:
             default: 4GiB
 toolchains:
   node:
-    provider: corepack
     version: "^20.17.0"
     package_managers:
       yarn: "4.12.0"
+    fulfillment:
+      source: corepack
+      mode: run
 env:
   sources:
     - kind: dotenv
