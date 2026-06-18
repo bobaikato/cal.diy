@@ -123,18 +123,26 @@ tasks:
     notes: |
       This maps to the repo's canonical install surface (`yarn`) and CI's dependency hydration path.
     category: setup
-    run: yarn install --inline-builds
+    prepare:
+      kind: dependency_hydration
+      medium: package_dependencies
+      source:
+        kind: node_package_manager
+        cwd: .
+        manager: yarn
+        mode: install
+        inline_builds: true
     effects:
+      writes:
+        - node_modules
+        - .yarn/install-state.gz
       network: true
+      network_kind: dependency_hydration
     execution:
       default_mode: native
       modes:
-        native:
-          context: host
-          run: yarn install --inline-builds
         container:
           context: app
-          run: yarn install --inline-builds
     requirements:
       toolchains:
         - node
