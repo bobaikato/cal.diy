@@ -471,12 +471,9 @@ tasks:
       It launches database, redis, Cal.com app, API v2 container, and Prisma Studio.
     category: prod
     launch:
-      kind: command
-      exe: docker
-      args:
-        - compose
-        - up
-        - -d
+      kind: compose
+      action: up
+      detach: true
     depends_on:
       - setup:env
     effects:
@@ -498,12 +495,10 @@ tasks:
       It expects `DATABASE_URL` to point to an available database.
     category: prod
     launch:
-      kind: command
-      exe: docker
-      args:
-        - compose
-        - up
-        - -d
+      kind: compose
+      action: up
+      detach: true
+      services:
         - calcom
         - studio
     depends_on:
@@ -527,12 +522,10 @@ tasks:
       Docker Compose may also start `calcom` dependencies (for example `database`).
     category: prod
     launch:
-      kind: command
-      exe: docker
-      args:
-        - compose
-        - up
-        - -d
+      kind: compose
+      action: up
+      detach: true
+      services:
         - calcom
     depends_on:
       - setup:env
