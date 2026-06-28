@@ -5,7 +5,7 @@ project:
   type: application
 metadata:
   ota:
-    minimum_version: "1.6.21"
+    minimum_version: "1.6.22"
 execution:
   default_context: host
   contexts:
@@ -42,7 +42,7 @@ execution:
             default: 4GiB
 toolchains:
   node:
-    version: "^20.17.0"
+    version: ">=20.17.0"
     package_managers:
       yarn: "4.12.0"
     fulfillment:
@@ -320,6 +320,56 @@ tasks:
     requirements:
       toolchains:
         - node
+  playwright:browsers:
+    context: host
+    description: Install the documented Playwright browser runtime
+    notes: |
+      Mirrors the README remediation lane `npx playwright install` when `yarn test-e2e`
+      reports missing Playwright browser executables.
+    category: setup
+    prepare:
+      kind: tool_bootstrap
+      tool: playwright_browsers
+      source:
+        kind: node_package_manager
+        cwd: .
+        manager: yarn
+    depends_on:
+      - install
+    requirements:
+      toolchains:
+        - node
+    effects:
+      network: true
+      network_kind: tool_bootstrap
+  test:e2e:
+    context: host
+    description: Run the documented Playwright e2e verification lane
+    notes: |
+      Mirrors the README command `yarn test-e2e`.
+      It seeds the local database, boots the web server through Playwright's configured webServer,
+      and requires `NEXTAUTH_URL` to point at the local web surface.
+    category: test
+    command:
+      exe: yarn
+      args:
+        - test-e2e
+    depends_on:
+      - setup:env
+      - install
+      - prisma:generate
+      - db:migrate
+      - playwright:browsers
+    requirements:
+      toolchains:
+        - node
+    effects:
+      writes:
+        - test-results
+      network: true
+      network_kind: integration_test
+      external_state:
+        - database
   build:
     context: host
     description: Run production build surface
@@ -578,6 +628,18 @@ workflows:
       task: install
     run:
       task: typecheck
+  e2e:
+    intent: integration_test
+    description: Browser-backed Playwright verification path
+    notes: |
+      This follows the documented `yarn test-e2e` path, including Playwright browser bootstrap and
+      local web-server startup through Playwright's own webServer configuration.
+    prepare:
+      task: setup:env
+    setup:
+      task: playwright:browsers
+    run:
+      task: test:e2e
   build:
     intent: production_build
     description: Production build path for the root web workspace
@@ -703,13 +765,15 @@ agent:
   bootstrap:
     ota:
       note: Install ota when missing so contributors and agents can run the readiness workflows declared in this contract.
-      sh: curl -fsSL https://dist.ota.run/install.sh | OTA_GIT_REV=08c270351c9870c82a39899161388bb250ad23c4 sh -s -- --from-git
-      powershell: $env:OTA_GIT_REV='08c270351c9870c82a39899161388bb250ad23c4'; & ([scriptblock]::Create((irm https://dist.ota.run/install.ps1))) -FromGit
+      source:
+        kind: branch
+        branch: 1.6.22-implementation
   notes: |
     Use `ota tasks --use .` to list runnable tasks and review the agent-safe surface before execution.
     Use `ota run setup:env .` before workflow runs so `.env`/`gh.env` are created when missing.
     Use `ota up --workflow verify --native .` for CI-aligned validation.
     Use `ota up --workflow quality --native .` for lint + typecheck gates.
+    Use `ota up --workflow e2e --native .` for the documented Playwright browser-backed verification path.
     Use `ota up --workflow dev --native .` for the canonical local `yarn dev` path.
     Use `ota up --workflow build --native .` or `ota up --workflow prod --native .`
     for production-oriented build/start validation.
